@@ -4,15 +4,21 @@ SELECT COUNT(*)
 FROM orders_duration;
 # 93763 orders recorded
 
-SELECT SUM(order_delay_time_mins > 0) AS "Number of Late deliveries rate(percent)"
-FROM orders_duration;
-# There are 7673 late deliveries
+SELECT COUNT(order_id)
+FROM orders;
+# Confirmed 93763 orders recorded
 
-SELECT (SUM(order_delay_time_mins > 0)/COUNT(*)) * 100 AS "Late deliveries rate(percent)"
+SELECT SUM(order_delay_time_mins > 0) AS "Number of Late deliveries"
 FROM orders_duration;
-# 8.1834% of orders were delivered late
+# There are 7673 orders delivered late 
+
+SELECT ROUND((SUM(order_delay_time_mins > 0)/COUNT(*)) * 100, 2) AS "Late deliveries rate(percent)"
+FROM orders_duration;
+# 8.18% of orders were delivered late
 
 # Creating view to store records of all late delivered orders ONLY
+DROP VIEW IF EXISTS late_orders;
+
 CREATE VIEW late_orders AS
 SELECT *
 FROM orders_duration

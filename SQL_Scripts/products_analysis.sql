@@ -1,20 +1,40 @@
 # PRODUCT LEVEL DELIVERY PERFORMANCE 
 USE ecommerce_delivery;
 
-# Product Category analysis 
-SELECT p.product_category_name AS "Product Category",
-	COUNT(DISTINCT CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late deliveries",
-	COUNT(od.order_id) AS "Number of orders in category",
-    ROUND ((COUNT(DISTINCT CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END)/COUNT(od.order_id)) * 100, 2) AS "Percent of category delivered late"
-FROM orders_duration od
-JOIN order_items oi 
-	ON od.order_id = oi.order_id
-JOIN products p 
-	ON oi.product_id = p.product_id
-GROUP BY p.product_category_name
-ORDER BY ROUND ((COUNT(DISTINCT CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END)/COUNT(od.order_id)) * 100, 2) DESC;
+SELECT COUNT(DISTINCT product_id)
+FROM products;
+# There are 31296 unique products
 
-# Product Characteristics analysis 
+SELECT COUNT(product_id)
+FROM order_items;
+# There are 107058 products ordered
+
+SELECT COUNT(*)
+FROM products p
+JOIN order_items oi
+	ON p.product_id = oi.product_id
+JOIN late_orders lo
+	ON oi.order_id = lo.order_id;
+# There are 8532 products delivered late
+
+# Product Category Analysis 
+SELECT p.product_category_name AS "Product Category",
+	COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END) AS "Number of products in category delivered late",
+	COUNT(oi.product_id) AS "Number of products ordered in category",
+    ROUND((COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END)/COUNT(oi.product_id)) * 100, 2) AS "Percent of product category delivered late"
+FROM order_items oi
+JOIN products p 
+    ON oi.product_id = p.product_id
+LEFT JOIN late_orders lo 
+    ON oi.order_id = lo.order_id
+GROUP BY p.product_category_name
+ORDER BY ROUND((COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END)/COUNT(oi.product_id)) * 100, 2) DESC;
+# Highest late delivery rate products: 1. home_comfort_2(16.67%), 2. furniture_mattress_and_upholstery(13.89%), 3. audio(12.85%), 4. fashion_underwear_beach(12.60%),
+# 5. christmas_supplies(12.08%), 6. books_technical(11.42%), 7. home_confort(10.43%), 8. construction_tools_lights(10.10%), 9. food(10.00%), 10. electronics(9.79%)
+# However these producs are rarely orders (less than 1000 ordered), with the exception of electronics (2698 ordered)
+# health_beauty is #11 in highest late delivery rate(9.17%) and #2 most ordered product category 
+
+# Product Dimensions Analysis 
 # Average dimensions of all products
 SELECT ROUND(AVG(p.product_weight_g), 2) AS "avg_product_weight", # 2273.46
 	ROUND(AVG(p.product_length_cm), 2) AS "avg_product_length", # 30.84
@@ -62,39 +82,117 @@ JOIN late_orders lo
 	ON oi.order_id = lo.order_id;
 # It seems that the heaviest, longest, tallest, and widest prodct was delivered late.
 
-# Identifying how many products in total meet maximum dimensions
-SELECT SUM(p.product_weight_g = max_dimensions.max_weight) AS "Total_num_products_with_max_weight",
-    SUM(p.product_length_cm = max_dimensions.max_length) AS "Total_num_products_with_max_length",
-    SUM(p.product_height_cm = max_dimensions.max_height) AS "Total_num_products_with_max_height",
-    SUM(p.product_width_cm = max_dimensions.max_width) AS "Total_num_products_with_max_width"
+DROP VIEW IF EXISTS max_product_dimensions;
+
+CREATE VIEW max_product_dimensions AS
+SELECT 
+	MAX(p.product_weight_g) AS max_weight,
+	MAX(p.product_length_cm) AS max_length,
+	MAX(p.product_height_cm) AS max_height,
+	MAX(p.product_width_cm) AS max_width
 FROM products p
-JOIN (
-    SELECT 
-        MAX(p2.product_weight_g) AS max_weight,
-        MAX(p2.product_length_cm) AS max_length,
-        MAX(p2.product_height_cm) AS max_height,
-        MAX(p2.product_width_cm) AS max_width
-    FROM products p2
-) AS max_dimensions;
+JOIN order_items oi ON p.product_id = oi.product_id
+JOIN late_orders lo ON oi.order_id = lo.order_id;
+
+# Identifying how many products in total meet maximum dimensions
+SELECT SUM(p.product_weight_g = mpd.max_weight) AS "Total_num_products_with_max_weight",
+    SUM(p.product_length_cm = mpd.max_length) AS "Total_num_products_with_max_length",
+    SUM(p.product_height_cm = mpd.max_height) AS "Total_num_products_with_max_height",
+    SUM(p.product_width_cm = mpd.max_width) AS "Total_num_products_with_max_width"
+FROM products p
+JOIN max_product_dimensions mpd;
 # 163 products meet one of the max dimensions. (1 max weight, 138 max length, 23 max height, 1 max width)
 
 # Identifying how many LATE DELIVERED PRODUCTS meet the max dimensions
 SELECT 
-    SUM(p.product_weight_g = max_dimensions.max_weight) AS "Num_late_delivered_products_with_max_weight",
-    SUM(p.product_length_cm = max_dimensions.max_length) AS "Num_late_delivered_products_with_max_length",
-    SUM(p.product_height_cm = max_dimensions.max_height) AS "Num_late_delivered_products_with_max_height",
-    SUM(p.product_width_cm = max_dimensions.max_width) AS "NNum_late_delivered_products_with_max_width"
+    SUM(p.product_weight_g = mpd.max_weight) AS "Num_late_delivered_products_with_max_weight",
+    SUM(p.product_length_cm = mpd.max_length) AS "Num_late_delivered_products_with_max_length",
+    SUM(p.product_height_cm = mpd.max_height) AS "Num_late_delivered_products_with_max_height",
+    SUM(p.product_width_cm = mpd.max_width) AS "Num_late_delivered_products_with_max_width"
 FROM products p
 JOIN order_items oi ON p.product_id = oi.product_id
 JOIN late_orders lo ON oi.order_id = lo.order_id
-JOIN (
-    SELECT 
-        MAX(p2.product_weight_g) AS max_weight,
-        MAX(p2.product_length_cm) AS max_length,
-        MAX(p2.product_height_cm) AS max_height,
-        MAX(p2.product_width_cm) AS max_width
-    FROM products p2
-    JOIN order_items oi2 ON p2.product_id = oi2.product_id
-    JOIN late_orders lo2 ON oi2.order_id = lo2.order_id
-) AS max_dimensions;
+CROSS JOIN max_product_dimensions mpd;
 # 50 products meet one of the max dimensions. (1 max weight, 26 max length, 22 max height, 1 max width)
+
+WITH late_delivered_products_with_max_dimension AS (
+	SELECT 
+		CASE 
+			WHEN p.product_weight_g = mpd.max_weight
+			OR p.product_length_cm = mpd.max_length
+			OR p.product_height_cm = mpd.max_height
+			OR p.product_width_cm = mpd.max_width
+			THEN 1
+			ELSE 0
+		END AS max_dimension_matched
+	FROM products p
+	JOIN order_items oi ON p.product_id = oi.product_id
+	JOIN late_orders lo ON oi.order_id = lo.order_id
+	CROSS JOIN max_product_dimensions mpd
+)
+SELECT SUM(max_dimension_matched) AS "late products that have a max dimension",
+	COUNT(*) AS "Total number of products delivered late",
+	ROUND((SUM(max_dimension_matched)/COUNT(*)) * 100, 2) AS "Percent of products delivered late that have max dimensions"
+FROM late_delivered_products_with_max_dimension;
+# 0.59% of products delivered late meet one of the max dimensions
+
+# Analyzing how late these products with max dimensions were delivered.
+SELECT 
+	CASE
+		WHEN lo.order_delay_days = 0 THEN 'Some Hours'
+		WHEN lo.order_delay_days = 1 THEN '1 day'
+        WHEN lo.order_delay_days = 2 THEN '2 days'
+        WHEN lo.order_delay_days = 3 THEN '3 days'
+        WHEN lo.order_delay_days BETWEEN 4 AND 6 THEN '4-6 days'
+        WHEN lo.order_delay_days >= 7 THEN '7+ days'
+	END AS Time_delivered_late,
+	SUM(p.product_weight_g = mpd.max_weight) AS "Num_late_delivered_products_with_max_weight",
+    SUM(p.product_length_cm = mpd.max_length) AS "Num_late_delivered_products_with_max_length",
+    SUM(p.product_height_cm = mpd.max_height) AS "Num_late_delivered_products_with_max_height",
+    SUM(p.product_width_cm = mpd.max_width) AS "Num_late_delivered_products_with_max_width"
+FROM products p
+JOIN order_items oi ON p.product_id = oi.product_id
+JOIN late_orders lo ON oi.order_id = lo.order_id
+CROSS JOIN max_product_dimensions mpd
+WHERE
+	p.product_weight_g = mpd.max_weight
+    OR p.product_length_cm = mpd.max_length
+    OR p.product_height_cm = mpd.max_height
+    OR p.product_width_cm = mpd.max_width
+GROUP BY Time_delivered_late
+ORDER BY 
+	CASE 
+		WHEN Time_delivered_late = '1 day' THEN 1
+		WHEN Time_delivered_late = '2 days' THEN 2
+		WHEN Time_delivered_late = '3 days' THEN 3
+		WHEN Time_delivered_late = '4-6 days' THEN 4
+		WHEN Time_delivered_late = '7+ days' THEN 5
+	END;
+# Hours: 1 product had max height
+# 1 Day: 2 max length, 1 max height
+# 2 Days: 1 max weight, 6 max length, 2 max height
+# 3 Days: 2 max length, 2 max height
+# 4-6 Days: 4 max length, 2 max height
+# 7+ Days: 12 max length, 14 max height, 1 max width
+
+# Product Photos Quantity Analysis 
+SELECT p.product_photos_qty AS "Number of product photos",
+	COUNT(lo.order_id) AS "Number of late delivered products per photo qty",
+	total_products.Total_product_photos_qty AS "Total number of products per photo qty",
+    ROUND((COUNT(lo.order_id) / total_products.Total_product_photos_qty) * 100, 2) AS "Percentage of products delivered late"
+FROM late_orders lo
+JOIN order_items oi 
+	ON lo.order_id = oi.order_id
+JOIN products p
+	ON oi.product_id = p.product_id
+JOIN (
+	SELECT product_photos_qty, COUNT(product_photos_qty) AS Total_product_photos_qty
+    FROM products
+    GROUP BY product_photos_qty
+) AS total_products 
+	ON p.product_photos_qty = total_products.product_photos_qty
+GROUP BY p.product_photos_qty
+ORDER BY ((COUNT(lo.order_id) / total_products.Total_product_photos_qty) * 100) DESC;
+# Only qty 6 and 7 seems off (6 = 33.26% and 7 = 42.90%)
+# Higher photo qty have high chance of being delivered late, but they are very rare (very few products have 11+ photos)
+# Lower photo qty have around the same range of late delivery % (24.53% -> 29.79%)
