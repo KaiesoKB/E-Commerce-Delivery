@@ -18,6 +18,60 @@ JOIN late_orders lo
 # There are 8532 products delivered late
 
 # Product Category Analysis 
+SELECT COUNT(DISTINCT product_category_name) AS "Number of product categories"
+FROM products;
+
+# Standardizing product dimensions to obtain general relative average dimensions of each product category =
+WITH stats AS (
+    SELECT
+        MIN(product_weight_g) AS min_w,
+        MAX(product_weight_g) AS max_w,
+        MIN(product_length_cm) AS min_l,
+        MAX(product_length_cm) AS max_l,
+        MIN(product_height_cm) AS min_h,
+        MAX(product_height_cm) AS max_h,
+        MIN(product_width_cm) AS min_wd,
+        MAX(product_width_cm) AS max_wd
+    FROM products
+),
+normalized AS (
+    SELECT
+        product_category_name,
+        (product_weight_g - min_w) / (max_w - min_w) AS norm_weight,
+        (product_length_cm - min_l) / (max_l - min_l) AS norm_length,
+        (product_height_cm - min_h) / (max_h - min_h) AS norm_height,
+        (product_width_cm - min_wd) / (max_wd - min_wd) AS norm_width
+    FROM products, stats
+),
+aggregation AS (
+	SELECT 
+		product_category_name,
+		ROUND(AVG(norm_weight), 4) AS avg_norm_weight,
+		ROUND(AVG(norm_length), 4) AS avg_norm_length,
+		ROUND(AVG(norm_height), 4) AS avg_norm_height,
+		ROUND(AVG(norm_width), 4) AS avg_norm_width,
+		ROUND(
+			AVG(norm_weight) +
+			AVG(norm_length) +
+			AVG(norm_height) +
+			AVG(norm_width)
+		, 4) AS combined_normalized_score
+	FROM normalized
+	GROUP BY product_category_name
+)
+SELECT 
+	DENSE_RANK() OVER (ORDER BY combined_normalized_score DESC) AS "Rank",
+    product_category_name,
+    avg_norm_weight,
+    avg_norm_length,
+    avg_norm_height,
+    avg_norm_width,
+    combined_normalized_score
+FROM aggregation
+ORDER BY combined_normalized_score DESC;
+-- office_furniture is relatively the largest product category with a combined normalized score of 1.4789 (1st)
+-- telephony is relatively the smallest product category with a combined normalized score of 0.2332 (73rd)
+
 SELECT p.product_category_name AS "Product Category",
 	COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END) AS "Number of products in category delivered late",
 	COUNT(oi.product_id) AS "Number of products ordered in category",
@@ -196,3 +250,4 @@ ORDER BY ((COUNT(lo.order_id) / total_products.Total_product_photos_qty) * 100) 
 # Only qty 6 and 7 seems off (6 = 33.26% and 7 = 42.90%)
 # Higher photo qty have high chance of being delivered late, but they are very rare (very few products have 11+ photos)
 # Lower photo qty have around the same range of late delivery % (24.53% -> 29.79%)
+
