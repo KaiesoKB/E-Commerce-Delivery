@@ -20,8 +20,16 @@ FROM orders_duration;
 DROP VIEW IF EXISTS late_orders;
 
 CREATE VIEW late_orders AS
-SELECT *
-FROM orders_duration
+SELECT *,
+	CASE
+		WHEN od.order_delay_days = 0 THEN 'Some Hours'
+        WHEN od.order_delay_days = 1 THEN '1 Day'
+        WHEN od.order_delay_days = 2 THEN '2 Days'
+        WHEN od.order_delay_days = 3 THEN '3 Days'
+        WHEN od.order_delay_days BETWEEN 4 AND 6 THEN '4-6 Days'
+        WHEN od.order_delay_days >= 7 THEN '7+ Days'
+	END AS days_delivered_late_bucket
+FROM orders_duration od
 WHERE order_delay_time_mins > 0;
 
 # Confirming the number of late orders match up
