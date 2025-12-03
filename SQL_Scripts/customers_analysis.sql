@@ -214,5 +214,4 @@ JOIN (
 	ON c.customer_city = total_orders.customer_city
 GROUP BY c.customer_city
 ORDER BY ROUND((COUNT(lo.order_id)/total_orders.total_orders_per_city) * 100, 2) DESC;
-
 # 100% late deliveries cities: 126, >50%: 19, 20-50%: 328, 10-20%: 360, 5-10%: 313, <5%: 140
