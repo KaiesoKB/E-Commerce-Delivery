@@ -121,7 +121,7 @@ GROUP BY
 -- Approval may ONLY have an impact on late deliveries from sellers in the MS state ✅
 
 
-# Identifying the states with the most severe late order delays
+# Identifying the states with the most severe late order delays among the states with the highest delivery rates
 SELECT s.seller_state AS "Seller state",
 	COUNT(lo.order_id) AS "Total number of orders delivered late",
 	-- 	COUNT(CASE WHEN lo.days_delivered_late_bucket = 'Some Hours' THEN 1 END) AS "Number of orders delivered some hours late",
@@ -213,6 +213,48 @@ ORDER BY s.seller_state, ROUND((COUNT(CASE WHEN lo.days_delivered_late_bucket = 
 -- SP: Most late deiveries that take 7+ days happen with bed_bath_table (412) -> (49.28% of late deliveries for this product in this seller state)
 -- SP: This is followed by Health_and_Beauty having 2nd most late deliveries in SP taking 7+ days (243) -> (41.05% of late deliveries for this product in this seller state)
 
+# Identifying possible product category name trends within states with lower late delivery rate but still high amount of total orders
+SELECT s.seller_state AS "seller state",
+	p.product_category_name AS "product category",
+	COUNT(lo.order_id) AS "Number of late orders per category in each state",
+    total_orders.total_orders_per_prod_cat_per_state AS "Total orders per category in each state",
+    ROUND((COUNT(lo.order_id) / total_orders.total_orders_per_prod_cat_per_state) * 100, 2) AS "Percent of product category orders delivered late in each state"
+FROM sellers s
+JOIN order_items oi
+	ON s.seller_id = oi.seller_id
+JOIN products p
+	ON oi.product_id = p.product_id
+JOIN late_orders lo
+	ON oi.order_id = lo.order_id
+JOIN (
+	SELECT s2.seller_state as seller_state, 
+		p2.product_category_name as product_category_name,
+		COUNT(DISTINCT oi2.order_id) AS total_orders_per_prod_cat_per_state
+	FROM sellers s2
+	JOIN order_items oi2
+		ON s2.seller_id = oi2.seller_id
+	JOIN products p2
+		ON oi2.product_id = p2.product_id
+	GROUP BY s2.seller_state, p2.product_category_name 
+) AS total_orders
+	ON total_orders.seller_state = s.seller_state
+	AND total_orders.product_category_name = p.product_category_name
+WHERE s.seller_state IN ('PR', 'SC', 'MG', 'RS')
+GROUP BY s.seller_state, p.product_category_name
+ORDER BY s.seller_state, ROUND((COUNT(lo.order_id) / total_orders.total_orders_per_prod_cat_per_state) * 100, 2) DESC;
+-- MG: All orders for construction_tools_lights were delivered late (1). All late orders in every other category were delivered late less than 50% of the time 
+-- MG: christmas_supplies (47.06% -> 8/17) and home_confort (31.58% -> 6/19) 
+-- MG: Most ordered category: computers_accessories (64/1344 late -> 4.76%)
+-- PR: computers (100% -> 1/1), costruction_tools_garden(50% -> 4/8), home_appliances (40% -> 4/10), bed_bath_table (26.73% -> 27/101)
+-- PR: Most ordered category: computers_accessories (142/1260 -> 11.27%) followed by sports_leisure (46/1172 -> 3.92%)
+-- RS: Highest late delivery rate for any category was 20% -> construction_tools_construction (1/5)
+-- RS: home_appliances_2 (1/8 -> 12.50%), industry_commerce_and_business (1/9 -> 11.11%), kitchen_dining_laundry_garden_furniture (3/30 -> 10%). Rest were below 10%
+-- RS: Most ordered category: computers_accessories (25/334 -> 7.49%)
+-- SC: construction_tools_lights had highest late delivery rate at 66.67% (6/9)
+-- SC: fashio_female_clothing (1/2), music (1/2), construction_tools_safety (1/2) -> all had 50% late delivery rate. Followed by home_construction with 20% late delivery rate (3/15)
+-- SC: Most ordered category: sports_leisure (43/540 -> 7.96%)
+-- Safe to conclude that product categories dont influence late deliveries on these states (no noticeable pattern)
+
 
 # Identifying which states have no late orders
 SELECT s.seller_state AS "seller state",
@@ -229,3 +271,19 @@ HAVING
 ORDER BY s.seller_state ASC;
 -- States with no late deliveries: PI, RO, SE
 -- PI: 11/11 on time orders, RO: 14/14 on time orders, SE: 10/10 on time orders
+
+
+# Identifying if there are any specific sellers that consistently deliver late
+SELECT s.seller_id AS "seller",
+	COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) AS "Number of late orders",
+	COUNT(oi.order_id) AS "Number of orders",
+	ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) / COUNT(oi.order_id)) * 100, 2) AS "Seller's Late delivery rate"
+FROM sellers s
+JOIN order_items oi
+	ON s.seller_id = oi.seller_id
+JOIN orders_duration od
+	ON oi.order_id = od.order_id
+GROUP BY s.seller_id
+HAVING COUNT(oi.order_id) > 1
+	AND ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) / COUNT(oi.order_id)) * 100, 2) > 50 # WHERE used before grouped select terms and HAVING used after grouped select terms
+ORDER BY ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) / COUNT(oi.order_id)) * 100, 2) DESC;
