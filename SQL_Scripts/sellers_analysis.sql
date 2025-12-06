@@ -255,6 +255,33 @@ ORDER BY s.seller_state, ROUND((COUNT(lo.order_id) / total_orders.total_orders_p
 -- SC: Most ordered category: sports_leisure (43/540 -> 7.96%)
 -- Safe to conclude that product categories dont influence late deliveries on these states (no noticeable pattern)
 
+# Identifying seller cities in the highest late delivery states (count and rate) with the most late deliveries
+SELECT s.seller_city AS "Seller City",
+	s.seller_state AS "Seller State",
+    COUNT(lo.order_id) AS "Late orders delivered from city",
+	COUNT(oi.order_id) AS "Total orders made from city",
+    ROUND((COUNT(lo.order_id) / COUNT(oi.order_id)) * 100, 2) AS "Late delivery rate per city"
+FROM sellers s
+JOIN order_items oi
+	ON s.seller_id = oi.seller_id
+LEFT JOIN late_orders lo
+	ON oi.order_id = lo.order_id
+WHERE s.seller_state IN ('AM', 'MA', 'PA', 'RN', 'SP', 'MS', 'RJ', 'PR', 'SC', 'MG', 'RS')
+GROUP BY s.seller_city, s.seller_state
+ORDER BY s.seller_state, ROUND((COUNT(lo.order_id) / COUNT(oi.order_id)) * 100, 2) DESC;
+-- MA: sao_luis -> 95/383 orders delivered late (24.80%)
+-- MG: uberlandia -> 46/399 orders delivered late (11.53%)
+-- PR: foz_do_iguacu -> 32/187 orders delivered late (17.11%), maringa -> 192/2174 orders delivered late (8.83%), curitiba -> 159/2789 orders delivered late (5.70%)
+-- RJ: sao_goncalo -> 37/369 orders delivered late (10.03%), petropolis -> 76/816 orders delivered late (9.31%), rio_de_janeiro -> 181/2251 orders delivered late (8.04%)
+-- RS: porto_alegre -> 44/782 orders delivered late (5.63%)
+-- SC: florianopolis -> 21/205 orders delivered late (10.24%), videira -> 28/300 orders delivered late (9.33%), joinville -> 42/648 orders delivered late (6.48%)
+-- SP: porto_ferreira -> 34/205 orders delivered late (16.59%), pirituba -> 25/171 orders delivered late (14.62%), laranjal_paulista -> 36/247 orders delivered late (14.57%)
+-- SP: ribeirao_preto -> 279/2167 (12.87%), franca -> 78/608 (12.83%), mogi_das_cruzes -> 50/392 (12.76%), itatiba -> 57/459 (12.42%), sao_jose_dos_campos -> 93/771 (12.06%)
+-- SP: guariba -> 133/1136 (11.71%), limeira -> 93/815 (11.41%), atibaia -> 63/595 (10.59%), jacarei -> 94/899 (10.46%), osasco -> 57/566 (10.07%), ibitinga -> 756/7510 (10.07%)
+-- SP: itaquaquecetuba -> 156/1634 (9.55%), sao_jose_do_rio_preto -> 230/2523 (9.12%), guarulhos -> 173/1899 (9.11%), sao_bernardo_do_campo -> 97/1080 (8.98%)
+-- SP: salto -> 108/1299 (8.31%), sao_paulo -> 2156/26702 (8.07%), piracicaba -> 133/1846 (7.20%), santo_andre -> 185/2845 (6.50%)
+-- These cities have high counts of late deliveries and higher late delivery rates. 
+
 
 # Identifying which states have no late orders
 SELECT s.seller_state AS "seller state",
@@ -286,4 +313,40 @@ JOIN orders_duration od
 GROUP BY s.seller_id
 HAVING COUNT(oi.order_id) > 1
 	AND ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) / COUNT(oi.order_id)) * 100, 2) > 50 # WHERE used before grouped select terms and HAVING used after grouped select terms
-ORDER BY ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) / COUNT(oi.order_id)) * 100, 2) DESC;
+ORDER BY COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END)  DESC;
+-- 32 Sellers with over 50% late delivery and have sold more than 1 order- 12 with 100% late deliveries (all 2 orders), 
+-- most late orders was 9/14 (64.29%) -> seller: b1b3948701c5c72445495bd161b83a4c, followed by 6/10 (60.00%) -> seller: 8d899e15a5925f097cca50faa49b15e3
+-- All others have between 2 to 4 late orders delivered
+-- 95 total late orders amongst these sellers (95/132)
+
+# Analyzing the products sold by these sellers with high (>50%) late delivery rate
+SELECT s.seller_id AS "seller",
+	p.product_category_name AS "Product categories sold by seller",
+    COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) AS "Number of late delivered orders per category",
+    COUNT(p.product_category_name) AS "Number of products sold per category",
+    ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) / COUNT(p.product_category_name)) * 100, 2) AS "Late delivery rate per category"
+FROM sellers s
+JOIN order_items oi
+	ON s.seller_id = oi.seller_id
+JOIN orders_duration od
+	ON oi.order_id = od.order_id
+JOIN products p
+	ON oi.product_id = p.product_id
+WHERE s.seller_id IN (
+	SELECT s2.seller_id AS "seller"
+	FROM sellers s2
+	JOIN order_items oi2
+		ON s2.seller_id = oi2.seller_id
+	JOIN orders_duration od2
+		ON oi2.order_id = od2.order_id
+	GROUP BY s2.seller_id
+	HAVING COUNT(oi2.order_id) > 1
+		AND ROUND((COUNT(CASE WHEN od2.order_delay_time_mins > 0 THEN 1 END) / COUNT(oi2.order_id)) * 100, 2) > 50 
+)
+GROUP BY s.seller_id, p.product_category_name
+HAVING COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN 1 END) > 0
+ORDER BY s.seller_id, COUNT(p.product_category_name) DESC;
+-- b1b3948701c5c72445495bd161b83a4c had 9/14 autos sold delivered late.
+-- 8d899e15a5925f097cca50faa49b15e3 has 6/9 furniture decor sold delivered late. 
+-- All other sellers sold between 2-4 orders that were delivered late per category (too small data to suggest ban/punishment, but useful to keep note of the sellers with 
+-- high late delivery rate
