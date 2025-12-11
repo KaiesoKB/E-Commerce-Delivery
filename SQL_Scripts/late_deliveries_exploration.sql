@@ -41,3 +41,19 @@ FROM late_orders;
 SELECT * 
 FROM late_orders
 ORDER BY order_delay_time_mins DESC;
+
+SELECT COUNT(CASE WHEN lo.days_delivered_late_bucket = 'Some Hours' THEN 1 END) AS "Number of late orders Some Hours late",
+	COUNT(CASE WHEN lo.days_delivered_late_bucket = '1 Day' THEN 1 END) AS "Number of late orders 1 Day late",
+    COUNT(CASE WHEN lo.days_delivered_late_bucket = '2 Days' THEN 1 END) AS "Number of late orders 2 Days late",
+    COUNT(CASE WHEN lo.days_delivered_late_bucket = '3 Days' THEN 1 END) AS "Number of late orders 3 Days late",
+	COUNT(CASE WHEN lo.days_delivered_late_bucket = '4-6 Days' THEN 1 END) AS "Number of late orders 4-6 Days late",
+    COUNT(CASE WHEN lo.days_delivered_late_bucket = '7+ Days' THEN 1 END) AS "Number of late orders 7+ Days late",
+	ROUND((COUNT(CASE WHEN lo.days_delivered_late_bucket = 'Some Hours' THEN 1 END)/COUNT(lo.order_id)) * 100, 2) AS "Percent of late orders Some Hours late",
+	ROUND((COUNT(CASE WHEN lo.days_delivered_late_bucket = '1 Day' THEN 1 END)/COUNT(lo.order_id)) * 100, 2) AS "Percent of late orders 1 Day late",
+    ROUND((COUNT(CASE WHEN lo.days_delivered_late_bucket = '2 Days' THEN 1 END)/COUNT(lo.order_id)) * 100, 2) AS "Percent of late orders 2 Days late",
+    ROUND((COUNT(CASE WHEN lo.days_delivered_late_bucket = '3 Days' THEN 1 END)/COUNT(lo.order_id)) * 100, 2) AS "Percent of late orders 3 Days late",
+    ROUND((COUNT(CASE WHEN lo.days_delivered_late_bucket = '4-6 Days' THEN 1 END)/COUNT(lo.order_id)) * 100, 2) AS "Percent of late orders 4-6 Days late",
+    ROUND((COUNT(CASE WHEN lo.days_delivered_late_bucket = '7+ Days' THEN 1 END)/COUNT(lo.order_id)) * 100, 2) AS "Percent of late orders 7+ days late"
+FROM late_orders lo;
+-- Most late orders to least late orders:
+-- 3642 took 7+ days (47.47%), 1368 took 4-6 days (17.83%), 1224 took 1 day (15.95%), 760 took 2 days (9.90%), 505 took 3 days (6.58%), 174 took some hours (2.27%)
