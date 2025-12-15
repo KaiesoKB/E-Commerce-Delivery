@@ -46,11 +46,14 @@ HAVING COUNT(DISTINCT o.order_id) > 1
 ORDER BY COUNT(DISTINCT o.order_id) DESC;
 -- No customers that received late orders, made a second order
 
--- SELECT COUNT(DISTINCT customer_unique_id) AS "Total number of unique customers",
--- 	COUNT(DISTINCT CASE WHEN orders_per_customer > 1 THEN customer_unique_id END) AS "Number of repeat customers"
--- FROM (
--- 	SELECT customer_unique_id, COUNT(DISTINCT order_id) AS orders_per_customer
---     FROM orders
---     GROUP BY customer_unique_id
--- ) AS repeat_customer_count;
-
+# Let's confirm to see if there were any customers that made more than 1 order
+SELECT COUNT(DISTINCT customer_unique_id) AS "Total number of unique customers",
+	COUNT(DISTINCT CASE WHEN orders_per_customer > 1 THEN customer_unique_id END) AS "Number of repeat customers"
+FROM (
+	SELECT customer_unique_id, COUNT(DISTINCT order_id) AS orders_per_customer
+    FROM orders
+    GROUP BY customer_unique_id
+) AS repeat_customer_count;
+-- There are 93763 unqiue customers and no repeat customers in the database
+-- This signals that no customer made a repeat order. 
+-- Safe to assume then that we cannot determine if customer retention is affected by late orders/deliveries.
