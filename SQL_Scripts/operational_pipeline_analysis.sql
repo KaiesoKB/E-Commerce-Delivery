@@ -63,16 +63,16 @@ ORDER BY ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id EN
 # Identifying if higher carrier pickup times lead to higher late delivery rates
 SELECT 
 	CASE 
-		WHEN od.carrier_pickup_time_mins <= 500 THEN '0-500'
-		WHEN od.carrier_pickup_time_mins <= 1200 THEN '500-1200'
-		WHEN od.carrier_pickup_time_mins <= 2500 THEN '1200-2500'
-		WHEN od.carrier_pickup_time_mins <= 5000 THEN '2500-5000'
-		WHEN od.carrier_pickup_time_mins <= 10000 THEN '5000-10000'
-        WHEN od.carrier_pickup_time_mins <= 20000 THEN '10000-20000'
-        WHEN od.carrier_pickup_time_mins <= 35000 THEN '20000-35000'
-        WHEN od.carrier_pickup_time_mins <= 50000 THEN '35000-50000'
-        WHEN od.carrier_pickup_time_mins <= 100000 THEN '50000-100000'
-		ELSE '100000+'
+		WHEN od.carrier_pickup_time_mins <= 720 THEN '0-720' -- 1/2 day
+		WHEN od.carrier_pickup_time_mins <= 1440 THEN '720-1440' -- 1 day
+		WHEN od.carrier_pickup_time_mins <= 2880 THEN '1440-2880' -- 2 days
+		WHEN od.carrier_pickup_time_mins <= 4320 THEN '2880-4320' -- 3 days
+		WHEN od.carrier_pickup_time_mins <= 5760 THEN '4320-5760' -- 4 days
+        WHEN od.carrier_pickup_time_mins <= 7200 THEN '5760-7200' -- 5 days
+        WHEN od.carrier_pickup_time_mins <= 10080 THEN '7200-10080' -- 5-7 days
+        WHEN od.carrier_pickup_time_mins <= 20160 THEN '10080-20160' -- 1-2 weeks
+        WHEN od.carrier_pickup_time_mins <= 30240 THEN '20160-30240' -- 2-3 weeks
+		ELSE '30240+' -- 3+ weeks
 	END AS "carrier pickup time bucket",
     COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late orders",
     COUNT(od.order_id) AS "Total orders",
@@ -80,20 +80,123 @@ SELECT
 FROM orders_duration od
 GROUP BY 
 	CASE 
-		WHEN od.carrier_pickup_time_mins <= 500 THEN '0-500'
-		WHEN od.carrier_pickup_time_mins <= 1200 THEN '500-1200'
-		WHEN od.carrier_pickup_time_mins <= 2500 THEN '1200-2500'
-		WHEN od.carrier_pickup_time_mins <= 5000 THEN '2500-5000'
-		WHEN od.carrier_pickup_time_mins <= 10000 THEN '5000-10000'
-        WHEN od.carrier_pickup_time_mins <= 20000 THEN '10000-20000'
-        WHEN od.carrier_pickup_time_mins <= 35000 THEN '20000-35000'
-        WHEN od.carrier_pickup_time_mins <= 50000 THEN '35000-50000'
-        WHEN od.carrier_pickup_time_mins <= 100000 THEN '50000-100000'
-		ELSE '100000+'
+		WHEN od.carrier_pickup_time_mins <= 720 THEN '0-720'
+		WHEN od.carrier_pickup_time_mins <= 1440 THEN '720-1440'
+		WHEN od.carrier_pickup_time_mins <= 2880 THEN '1440-2880'
+		WHEN od.carrier_pickup_time_mins <= 4320 THEN '2880-4320'
+		WHEN od.carrier_pickup_time_mins <= 5760 THEN '4320-5760'
+        WHEN od.carrier_pickup_time_mins <= 7200 THEN '5760-7200'
+        WHEN od.carrier_pickup_time_mins <= 10080 THEN '7200-10080'
+        WHEN od.carrier_pickup_time_mins <= 20160 THEN '10080-20160'
+        WHEN od.carrier_pickup_time_mins <= 30240 THEN '20160-30240'
+		ELSE '30240+'
 	END
 ORDER BY ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) DESC;
 -- Late delivery likelihood is strongly correlated with carrier pickup time. Longer pickup delays significantly increase higher late delivery risk
--- Thousands orders up to 10000 mins carrier pickup time and even up to 35000 mins carrier pickup time contains large enough sample of data to support this
+-- Thousands orders up to 30000 mins carrier pickup time contains large enough sample of data to support this
 -- GENERATE GRAPH TO DEMONSTRATE THIS
 
 # Identifying if higher shipping times lead to higher late delivery rates
+SELECT 
+	CASE 
+		WHEN od.shipping_time_mins <= 720 THEN '0-720'
+		WHEN od.shipping_time_mins <= 1440 THEN '720-1440'
+		WHEN od.shipping_time_mins <= 2880 THEN '1440-2880'
+		WHEN od.shipping_time_mins <= 4320 THEN '2880-4320'
+		WHEN od.shipping_time_mins <= 5760 THEN '4320-5760'
+        WHEN od.shipping_time_mins <= 7200 THEN '5760-7200'
+        WHEN od.shipping_time_mins <= 10080 THEN '7200-10080'
+        WHEN od.shipping_time_mins <= 20160 THEN '10080-20160'
+        WHEN od.shipping_time_mins <= 30240 THEN '20160-30240'
+		ELSE '30240+'
+	END AS "shipping time bucket",
+    COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late orders",
+    COUNT(od.order_id) AS "Total orders",
+    ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) AS "Percent of orders that were late per carrier pickup time bucket"
+FROM orders_duration od
+GROUP BY 
+	CASE 
+		WHEN od.shipping_time_mins <= 720 THEN '0-720'
+		WHEN od.shipping_time_mins <= 1440 THEN '720-1440'
+		WHEN od.shipping_time_mins <= 2880 THEN '1440-2880'
+		WHEN od.shipping_time_mins <= 4320 THEN '2880-4320'
+		WHEN od.shipping_time_mins <= 5760 THEN '4320-5760'
+        WHEN od.shipping_time_mins <= 7200 THEN '5760-7200'
+        WHEN od.shipping_time_mins <= 10080 THEN '7200-10080'
+        WHEN od.shipping_time_mins <= 20160 THEN '10080-20160'
+        WHEN od.shipping_time_mins <= 30240 THEN '20160-30240'
+		ELSE '30240+'
+	END
+ORDER BY ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) DESC;
+-- Shipping time doesnt indicate a direct linear relationship with late orders.
+-- However the data does indicate that extreme shipping time values lead to late delivered orders
+-- This suggests that shipping time is more of a failure-state indicator than a continiuous predictor
+
+
+# Identfying the cause for the anomaly in <720 mins shipping time having high late delivery rate
+SELECT o.order_delivered_customer_date,  o.order_estimated_delivery_date,
+	ABS(TIMESTAMPDIFF(MINUTE, o.order_delivered_customer_date, o.order_estimated_delivery_date)) AS "delivered vs estimated delivery difference in minutes",
+    od.carrier_pickup_time_mins 
+FROM orders o
+JOIN orders_duration od
+	ON o.order_id = od.order_id
+WHERE od.shipping_time_mins <= 720
+	AND od.order_delay_time_mins > 0
+ORDER BY od.carrier_pickup_time_mins ASC;
+-- Late orders that had shipping time of <= 720 mins was late due to extremely higher carrier pickup times with the lowest carrier pickup time being 22748 mins
+
+
+# Exploring possible combinations of carrier pickup time and shipping time that have high rates of late deliveries
+SELECT COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late orders",
+	COUNT(od.order_id) AS "Total number of orders",
+    ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) AS "Percent of late orders"
+FROM orders_duration od
+WHERE od.carrier_pickup_time_mins >= 7200
+	AND od.shipping_time_mins >= 20160;
+-- 7200 minimum carrier pickup time + 20160 minimum shipping time -> 51.22% late deliveries 
+
+SELECT COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late orders",
+	COUNT(od.order_id) AS "Total number of orders",
+    ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) AS "Percent of late orders"
+FROM orders_duration od
+WHERE od.carrier_pickup_time_mins >= 10080
+	AND od.shipping_time_mins >= 20160;
+-- 10080 minimum carrier pickup time + 20160 minimum shipping time -> 57.94% late deliveries 
+-- Increasing carrier time -> increased late delivery rate
+
+SELECT COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late orders",
+	COUNT(od.order_id) AS "Total number of orders",
+    ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) AS "Percent of late orders"
+FROM orders_duration od
+WHERE od.carrier_pickup_time_mins >= 7200
+	AND od.shipping_time_mins >= 30240;
+-- 7200 minimum carrier pickup time + 30240 minimum shipping time -> 77.90% late deliveries 
+-- Increasing carrier time -> Signficant increase in late delivery time 
+
+SELECT COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late orders",
+	COUNT(od.order_id) AS "Total number of orders",
+    ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) AS "Percent of late orders"
+FROM orders_duration od
+WHERE od.carrier_pickup_time_mins >= 10080
+	AND od.shipping_time_mins >= 30240;
+-- 10080 minimum carrier pickup time + 30240 minimum shipping time -> 80.80% late deliveries 
+-- Combination of extreme carrier pickup time and extreme shipping time leads to extremely high late delivery rate
+
+
+# Does decreasing carrier pickup time or shipping time significantly lower late delivery rate
+SELECT COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late orders",
+	COUNT(od.order_id) AS "Total number of orders",
+    ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) AS "Percent of late orders"
+FROM orders_duration od
+WHERE od.carrier_pickup_time_mins <= 7200
+	AND od.shipping_time_mins >= 20160;
+-- 7200 maximum carrier pickup time + 20160 minimum shipping time -> 31.04% late deliveries
+
+SELECT COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) AS "Number of late orders",
+	COUNT(od.order_id) AS "Total number of orders",
+    ROUND((COUNT(CASE WHEN od.order_delay_time_mins > 0 THEN od.order_id END) / COUNT(od.order_id)) * 100, 2) AS "Percent of late orders"
+FROM orders_duration od
+WHERE od.carrier_pickup_time_mins >= 7200
+	AND od.shipping_time_mins <= 20160;
+-- 7200 minimum carrier pickup time + 20160 maximum shipping time -> 9.33% late deliveries
+-- Lower shipping time with high carrier pickup time signficantly decreases late delivery rate
