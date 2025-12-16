@@ -197,14 +197,14 @@ ORDER BY s.seller_state, p.product_category_name, COUNT(CASE WHEN o.order_id IS 
 SELECT 
     s.seller_state AS "Seller state",
     c.customer_state AS "Customer State",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 THEN lo.order_id END) AS "Late deliveries made through route in Winter 2017",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 THEN o.order_id END) AS "Total orders made through route in Winter 2017",
-    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 THEN o.order_id END)) * 100, 2) AS "Percent of deliveries in route that were late in Winter 2017",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN lo.order_id END) AS "Late deliveries made through route in Winter 2018",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN o.order_id END) AS "Total orders made through route in Winter 2018",
-    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN o.order_id END)) * 100, 2) AS "Percent of deliveries in route that were late in Winter 2018"
+    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND lo.order_id IS NOT NULL THEN lo.order_id END) AS "Late deliveries made through route in Winter 2017",
+    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND o.order_id IS NOT NULL THEN o.order_id END) AS "Total orders made through route in Winter 2017",
+    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND lo.order_id IS NOT NULL THEN lo.order_id END)
+			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) AS "Percent of deliveries in route that were late in Winter 2017",
+    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END) AS "Late deliveries made through route in Winter 2018",
+    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END) AS "Total orders made through route in Winter 2018",
+    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
+			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL  THEN o.order_id END)) * 100, 2) AS "Percent of deliveries in route that were late in Winter 2018"
 FROM sellers s
 JOIN order_items oi
     ON s.seller_id = oi.seller_id
@@ -216,12 +216,42 @@ LEFT JOIN late_orders lo
     ON oi.order_id = lo.order_id
 WHERE MONTH(o.order_delivered_customer_date) IN (1, 2, 12)
 GROUP BY s.seller_state, c.customer_state
-HAVING COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN o.order_id END) >= 100
-	AND ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN o.order_id END)) * 100, 2) >= 10
-ORDER BY ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 THEN o.order_id END)) * 100, 2) DESC;
+HAVING COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END) >= 100
+	AND ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
+			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) >= 10
+ORDER BY ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
+			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) DESC;
 -- In Winter 2017, there were 6 routes with over 100 total deliveries and over 10% late delivery rate. From highest to lowest late delivery rate (23.97% -> 11.36%):
 -- SP -> ES, SP -> RJ, SP -> GO, SP -> DF, SP -> SC, SP -> BA
 -- In Winter 2018, there were 9 routes with voer 100 total deliveries and over 10% late delivery rate. From highest to lowest late delivery rate (25.79%, 11.30%):
 -- SP -> RJ, MG -> RJ, PR -> RJ, SP -> BA, SP -> RS, SP -> SC, SP -> PE, RJ -> SP, SP -> CE
+
+# Identifying the product categories that contribute most to the higher late delivery rates in Winter 2017 and Winter 2018
+SELECT p.product_category_name AS "Product Category",
+    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND lo.order_id IS NOT NULL THEN lo.order_id END) AS "Late deliveries made per product category in Winter 2017",
+    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND o.order_id IS NOT NULL THEN o.order_id END) AS "Total orders made per product category in Winter 2017",
+    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND lo.order_id IS NOT NULL THEN lo.order_id END)
+			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) AS "Percent of deliveries per product category that were late in Winter 2017",
+    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END) AS "Late deliveries made per product category in Winter 2018",
+    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END) AS "Total orders made per product category in Winter 2018",
+    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
+			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) AS "Percent of deliveries per product category that were late in Winter 2018"
+FROM products p
+JOIN order_items oi 
+    ON p.product_id = oi.product_id
+JOIN orders o 
+    ON oi.order_id = o.order_id
+LEFT JOIN late_orders lo
+	ON o.order_id = lo.order_id
+WHERE MONTH(o.order_delivered_customer_date) IN (1, 2, 12)
+GROUP BY p.product_category_name
+HAVING COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END) >= 80
+	AND ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
+			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) >= 10
+ORDER BY ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
+			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) DESC;
+-- 748/8660 (2017) and 1018/12130 (2018)
+-- In Winter 2017; there were 5 product categories with over 50 total deliveries and over 10% late delivery rate (from highest to lowest: 15.38% -> 10.39%)
+-- office_furniture, bed_bath_table, baby, electronics, telephony
+-- In Winter 2018; there were 7 product categories with over 80 total deliveries and over 10% late delivery rate (from highest to lowest: 16.67% -> 10.47%)
+-- toys, baby, consoles_games, garden_tools, furniture_decor, bed_bath_table, musical_instruments
