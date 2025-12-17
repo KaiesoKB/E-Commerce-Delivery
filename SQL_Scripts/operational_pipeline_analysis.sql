@@ -10,10 +10,10 @@ FROM orders_duration od
 WHERE od.order_delay_time_mins = 0;
 
 # Identifying the average time taken at each operations from purchase -> pickup/delivery for late orders
-SELECT ROUND(AVG(od.apporval_time_mins), 2) AS "Average approval time for non late orders", -- -> 722.94 mins
-	 ROUND(AVG(od.carrier_pickup_time_mins), 2) AS "Average pickup time for carriers for non late orders", -- 7667.39 mins
-     ROUND(AVG(od.shipping_time_mins), 2) AS "Average shipping time for non late orders", -- 37018.56 mins
-     ROUND(AVG(od.total_delivery_time_mins), 2) AS "Average delivery time for non late orders" -- 45408.84 mins
+SELECT ROUND(AVG(od.apporval_time_mins), 2) AS "Average approval time for late orders", -- -> 722.94 mins
+	 ROUND(AVG(od.carrier_pickup_time_mins), 2) AS "Average pickup time for carriers for late orders", -- 7667.39 mins
+     ROUND(AVG(od.shipping_time_mins), 2) AS "Average shipping time for late orders", -- 37018.56 mins
+     ROUND(AVG(od.total_delivery_time_mins), 2) AS "Average delivery time for late orders" -- 45408.84 mins
 FROM orders_duration od
 WHERE od.order_delay_time_mins > 0;
 -- Late orders have higher average times across each stage in the operatonal pipeline 
