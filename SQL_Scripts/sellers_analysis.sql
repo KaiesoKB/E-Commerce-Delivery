@@ -39,6 +39,7 @@ ORDER BY ROUND((COUNT(DISTINCT lo.order_id)/total_orders.total_orders_per_state)
 -- SP as a seller state isnt a problem by itself. 
 -- It's scale is relatively high compared to other states, so its contribution to late deliveries naturally increase even though performance is good (8.82% -> Slightly higher than baseline 8.18%)
 -- Investigating patterns within the seller state SP should be done separately 
+-- RJ also has 8.46 late delivery rate with 347/4102 -> Note for possible reference later on
 
 # Identifying the severity of late order delays MA and SP seller states
 SELECT s.seller_state AS "Seller state",
