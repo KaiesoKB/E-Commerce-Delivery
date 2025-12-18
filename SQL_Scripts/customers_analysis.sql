@@ -131,7 +131,6 @@ ORDER BY c.customer_state ASC, ROUND((COUNT(DISTINCT oi.order_id) / t.total_orde
 -- CE, PA, PB, PE had between 10-20% late delivery for health_beauty products
 -- RJ had 16.67% late delivery rate for orders containing bed_bath_table products with 11.17% of ordrers to RJ containing bed_bath_table products
 -- Majority of orders containing these products were late by 7+ days (EXCEPT in RN: 0% of late orders containing health_beauty were delivered 7+ days late)
--- NOTE: There isnt a product category dominating the orders and late late delivery rate in SP
 
 # Since majority of orders, containing the most popular product category, delivered to the above 15 states were late by 7+ days. Does the pattern follow through for all orders to these states
 # regardless of product category 
@@ -170,9 +169,9 @@ ORDER BY ROUND((COUNT(lo.order_id)/total_orders.total_orders_per_state) * 100, 2
                          
 # Analyzing which customer state has the highest ON TIME delivery rate
 SELECT c.customer_state AS "Customer State", 
-	COUNT(o.order_id) AS "Number of on time deliveries", 
+	COUNT(DISTINCT o.order_id) AS "Number of on time deliveries", 
 	total_orders.total_orders_per_state AS "Total number of orders in State",
-    ROUND((COUNT(o.order_id)/total_orders.total_orders_per_state) * 100, 2) AS "On time delivery rate per state"
+    ROUND((COUNT(DISTINCT o.order_id)/total_orders.total_orders_per_state) * 100, 2) AS "On time delivery rate per state"
 FROM customers c
 JOIN orders o
 	ON c.customer_unique_id = o.customer_unique_id
@@ -188,7 +187,7 @@ JOIN (
 	ON c.customer_state = total_orders.customer_state
 WHERE od.order_delay_time_mins = 0
 GROUP BY c.customer_state
-HAVING ROUND((COUNT(o.order_id)/total_orders.total_orders_per_state) * 100, 2) > 90
-ORDER BY ROUND((COUNT(o.order_id)/total_orders.total_orders_per_state) * 100, 2) DESC; 
+HAVING ROUND((COUNT(DISTINCT o.order_id)/total_orders.total_orders_per_state) * 100, 2) > 90
+ORDER BY ROUND((COUNT(DISTINCT o.order_id)/total_orders.total_orders_per_state) * 100, 2) DESC; 
 -- 86090 on time deliveries
 -- RO AC AM AP PR MG SP MT DF RS GO SC have higehst on time deliveries rates in their states (over 90%) -> 69056 total orders from these states
