@@ -40,6 +40,7 @@ ORDER BY ROUND((COUNT(DISTINCT lo.order_id)/total_orders.total_orders_per_state)
 -- It's scale is relatively high compared to other states, so its contribution to late deliveries naturally increase even though performance is good (8.82% -> Slightly higher than baseline 8.18%)
 -- Investigating patterns within the seller state SP should be done separately 
 -- RJ also has 8.46 late delivery rate with 347/4102 -> Note for possible reference later on
+-- 4th: PR -> 479/7362 (6.51%)
 
 # Identifying the severity of late order delays MA and SP seller states
 SELECT s.seller_state AS "Seller state",
