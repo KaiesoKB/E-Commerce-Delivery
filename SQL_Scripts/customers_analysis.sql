@@ -54,6 +54,7 @@ JOIN (
 WHERE c.customer_state IN ('AL', 'MA', 'PI', 'CE', 'SE', 'BA', 'RJ', 'TO', 'PA', 'ES', 'MS', 'PB', 'PE', 'RN', 'SP')
 GROUP BY c.customer_state
 ORDER BY ROUND((COUNT(lo.order_id)/total_orders.total_orders_per_state) * 100, 2) DESC; 
+-- AL - 19, MA - 39, PI - 11, CE - 50, SE - 16, BA - 113, RJ - 98, TO - 14, PA - 30, ES - 47, MS - 19, PB - 20, PE - 48, RN - 20, SP - 252
 
 # Identifying the ratio of orders in each city that are delivered late
 WITH total_orders_state AS (
