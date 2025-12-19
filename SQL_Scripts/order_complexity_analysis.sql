@@ -35,25 +35,36 @@ WHERE order_item_id > 16;
 -- There are 3 orders that have at least 16 items, but each contains 20, 20 and 21 items respectively (not 16 max)
 
 # Identifing the number of late orders with different number of order items
+WITH total_late_orders AS (
+	SELECT COUNT(DISTINCT order_id) AS total_late_orders
+    FROM late_orders
+),
+all_orders AS (
+	SELECT COUNT(DISTINCT order_id) AS total_orders
+    FROM orders
+)
 SELECT ipo.items_per_order AS "Number of items in an order",
-	COUNT(DISTINCT lo.order_id) AS "Number of unique late orders",
-	COUNT(DISTINCT ipo.order_id) AS "Number of unique orders per number of items",
-    ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT ipo.order_id)) * 100, 2) AS "Percent of late orders per number of items"
+	COUNT(DISTINCT ipo.order_id) AS "Number of unique orders",
+     ROUND((COUNT(DISTINCT ipo.order_id) / MAX(ao.total_orders))* 100, 2) AS "Percent of all orders per number of items",
+	COUNT(DISTINCT ipo.lo_order_id) AS "Number of unique late orders",
+    ROUND((COUNT(DISTINCT ipo.lo_order_id) / COUNT(DISTINCT ipo.order_id)) * 100, 2) AS "Percent of late orders per number of items",
+    ROUND((COUNT(DISTINCT ipo.lo_order_id) / MAX(tlo.total_late_orders)) * 100, 2) AS "Percent of all late orders"
 FROM (
-	SELECT order_id,
-		COUNT(order_item_id) AS items_per_order
-	FROM order_items
-    GROUP BY order_id
+	SELECT oi.order_id AS order_id, lo.order_id AS lo_order_id,
+		COUNT(oi.order_item_id) AS items_per_order
+	FROM order_items oi
+    LEFT JOIN late_orders lo
+		ON oi.order_id = lo.order_id
+    GROUP BY oi. order_id
 ) ipo
-LEFT JOIN late_orders lo
-	ON ipo.order_id = lo.order_id
+CROSS JOIN total_late_orders tlo
+CROSS JOIN all_orders ao 
 GROUP BY ipo.items_per_order
 HAVING COUNT(DISTINCT ipo.order_id) > 100
 ORDER BY ipo.items_per_order;
--- There are less than 100 total unique orders for items with 7 or more. The sample is too small to dictate anything. 
--- Orders with at least 7 items also have 0% late delivery, except for the 1 order with 21 items. (100%)
 -- The number of total unique orders drastically decrease from those containing 1 item to those containing 6 items
 -- However, the late delivery rate remains roughly the same: between 5.79% (4 itemed orders) -> 8.36% (1 itemed orders)
+-- Orders with 1 item have the highest late delivery rate of 8.36%, but 90.02% of all orders have 1 item
 
 # Identifying if more items in an order will cause the order to be delayed later
 SELECT ipo.items_per_order AS "Number of items in an order",
