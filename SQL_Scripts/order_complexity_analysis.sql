@@ -14,13 +14,14 @@ WHERE order_item_id > 1;
 
 # Identifying the number of unique order with different amount of order items
 SELECT items_per_order AS "Number of items in an order",
-	COUNT(order_id) AS "Number of unique orders per number of items"
+	COUNT(DISTINCT order_id) AS "Number of unique orders per number of items",
+    SUM(items_per_order) AS "Cumulative order items" -- This is a sanity check to ensure that all items involved in an order are accounted for
 FROM (
 	SELECT order_id,
 		COUNT(order_item_id) AS items_per_order
 	FROM order_items
     GROUP BY order_id
-) oi_filter
+) ipo
 GROUP BY items_per_order
 ORDER BY items_per_order;
 -- Majority orders have 1 item and least orders have 13 or 21 items 
