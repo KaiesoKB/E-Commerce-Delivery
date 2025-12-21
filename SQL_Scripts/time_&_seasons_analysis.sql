@@ -6,6 +6,7 @@ SELECT MIN(order_delivered_customer_date) AS "Min date",
 FROM orders;
 -- Data recorded from October 2016 to October 2018
 
+
 # Identifying specific months in each year that exhibit the most late deliveries 
 SELECT YEAR(o.order_delivered_customer_date) AS "Year",
 	MONTH(o.order_delivered_customer_date) AS "Month",
@@ -23,37 +24,7 @@ ORDER BY YEAR(o.order_delivered_customer_date), MONTH(o.order_delivered_customer
 -- 2018 -> January: 653/6433 (10.15%), March: 1063/6693 (15.88%), April: 1446/7528 (19.21%), August: 865/8124 (10.65%)
 -- These 5 time periods account for 4773/7673 total late orders (62.16% of all late orders)
 
-
 # Identifying the routes that contribute to the most late orders in these time periods
-	-- WITH total_late_orders AS (
-	-- 	SELECT order_id, COUNT(DISTINCT order_id) AS total_late_orders
-	--     FROM late_orders
-	--     GROUP BY order_id
-	-- )
-	-- SELECT YEAR(o.order_delivered_customer_date) AS "Year",
-	-- 	   MONTH(o.order_delivered_customer_date) AS "Month",
-	-- 	   s.seller_state AS "Seller state",
-	-- 	   c.customer_state AS "Customer state",
-	-- 	   COUNT(DISTINCT lo.order_id) AS "Number of late orders",
-	-- 	   COUNT(DISTINCT o.order_id) AS "Total number of orders",
-	--     ROUND((COUNT(DISTINCT lo.order_id) /COUNT(DISTINCT o.order_id)) * 100, 2) AS "Late delivery rate of route",
-	--     ROUND((COUNT(DISTINCT lo.order_id) / MAX(tlo.total_late_orders)) * 100, 2) AS "Percent of all late deliveries"
-	-- FROM sellers s
-	-- JOIN order_items oi
-	-- 		ON s.seller_id = oi.seller_id
-	-- JOIN orders o
-	-- 		ON oi.order_id = o.order_id
-	-- JOIN customers c
-	-- 		ON o.customer_unique_id = c.customer_unique_id
-	-- LEFT JOIN late_orders lo
-	-- 		ON o.order_id = lo.order_id
-	-- CROSS JOIN total_late_orders tlo
-	-- WHERE (YEAR(o.order_delivered_customer_date), MONTH(o.order_delivered_customer_date)) IN ((2017, 12), (2018, 1), (2018, 3), (2018, 4), (2018, 8))
-	-- GROUP BY YEAR(o.order_delivered_customer_date), MONTH(o.order_delivered_customer_date), s.seller_state, c.customer_state
-	-- HAVING COUNT(DISTINCT o.order_id) > 100
-	-- ORDER BY YEAR(o.order_delivered_customer_date), MONTH(o.order_delivered_customer_date), ROUND((COUNT(DISTINCT lo.order_id) / MAX(tlo.total_late_orders)) * 100, 2) DESC;
--- Inefficient query (keep recorded)
-
 WITH total_late_orders AS (
     SELECT COUNT(DISTINCT order_id) AS total_late_orders
     FROM late_orders
@@ -124,6 +95,29 @@ HAVING COUNT(DISTINCT o.order_id) >= 100
 ORDER BY YEAR(o.order_delivered_customer_date), MONTH(o.order_delivered_customer_date), ROUND((COUNT(DISTINCT lo.order_id) / MAX(tlo.total_late_orders)) * 100,2);
 -- Problematic categories in this time period -> bed_bath_table, health_beauty, sports_leisure, computers_accessories, furniture_decor, watches_gifts, computers_accessories
 -- Visualization for these specific product categories over time is beneficial - NOTE
+
+# Identifying if there is a difference in the logistics times that contribute to higher late delivery rates in Summer 2018 compared to Summer 2017:
+SELECT YEAR(o.order_delivered_customer_date) AS "Year",
+	MONTH(o.order_delivered_customer_date) AS "Month",
+	ROUND(AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.apporval_time_mins END), 2) AS "Average approval time of late orders",
+    ROUND(AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.apporval_time_mins END), 2) AS "Average approval time of non late orders",
+    ROUND(AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.carrier_pickup_time_mins END), 2) AS "Average Carrier pickup time of late orders",
+    ROUND(AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.carrier_pickup_time_mins END), 2) AS "Average Carrier pickup time of non late orders",
+    ROUND(AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.shipping_time_mins END), 2) AS "Average shipping time of late orders",
+    ROUND(AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.shipping_time_mins END), 2) AS "Average shipping time of non late orders"
+FROM orders o
+JOIN orders_duration od
+	ON o.order_id = od.order_id
+LEFT JOIN late_orders lo
+    ON o.order_id = lo.order_id
+WHERE (YEAR(o.order_delivered_customer_date), MONTH(o.order_delivered_customer_date)) IN ((2017, 12), (2018, 1), (2018, 3), (2018, 4), (2018, 8))
+GROUP BY YEAR(o.order_delivered_customer_date), MONTH(o.order_delivered_customer_date)
+ORDER BY YEAR(o.order_delivered_customer_date), MONTH(o.order_delivered_customer_date);
+-- December 2017: higher approval and pickup times, lower shipping times
+-- January 2018: Higher approval, pickup and shipping times
+-- March 2018: Lower approval and pickup times, roughly same shipping times
+-- April 2018: Lower approval and pickup times, higher shipping times
+-- August 2018: roughly same approval and pickup times, lower shipping times
 
 
 # Identifying seasons in each year that exhibit the most late deliveries 
@@ -208,9 +202,29 @@ LIMIT 10;
 -- There were 26 products that contribute meaningfully to the late delivery rate in Spring 2018. The top 10 include(from highest to lowest rate): 
 -- bed_bath_table, electronics, telephony, consoles_games, health_beauty, stationery, garden_tools, sports_leisure, computers_accessories, baby
 
+# Identifying if there is a difference in the logistics times that contribute to higher late delivery rates in Spring 2018 compared to Spring 2017:
+SELECT YEAR(o.order_delivered_customer_date) AS "Year",
+	AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.apporval_time_mins END) AS "Average approval time of late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.apporval_time_mins END) AS "Average approval time of non late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.carrier_pickup_time_mins END) AS "Average Carrier pickup time of late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.carrier_pickup_time_mins END) AS "Average Carrier pickup time of non late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.shipping_time_mins END) AS "Average shipping time of late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.shipping_time_mins END) AS "Average shipping time of non late orders per year"
+FROM orders o
+JOIN orders_duration od
+	ON o.order_id = od.order_id
+LEFT JOIN late_orders lo
+    ON o.order_id = lo.order_id
+WHERE MONTH(o.order_delivered_customer_date) BETWEEN 3 AND 5 
+GROUP BY YEAR(o.order_delivered_customer_date)
+ORDER BY YEAR(o.order_delivered_customer_date), ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) DESC;
+-- Approval time did not contribute to the rise in late deliveries.
+-- Carrier pickup time cannot explain the higher late delivery rate.
+-- Shipping time is the primary contributor to the increased late delivery rate, in terms of logistics operations
 
-# To confirm if these specific routes in particulat contribute to higher late deliveries in spring 2019, we can compare them to the highest late delivery rate routes of spring 2017
-SELECT 
+
+# Identifying if there is a difference in the routes (seller to customer states) that contribute to higher late delivery rates in Summer 2018 compared to Summer 2017:
+SELECT YEAR(o.order_delivered_customer_date) AS "Year",
     s.seller_state AS "Seller state",
     c.customer_state AS "Customer State",
     COUNT(DISTINCT lo.order_id) AS "Late deliveries made from seller state to customer state",
@@ -225,164 +239,49 @@ JOIN customers c
     ON o.customer_unique_id = c.customer_unique_id
 LEFT JOIN late_orders lo
     ON oi.order_id = lo.order_id
-WHERE YEAR(o.order_delivered_customer_date) = 2017 
-	AND MONTH(o.order_delivered_customer_date) BETWEEN 3 AND 5 
-GROUP BY s.seller_state, c.customer_state
-HAVING COUNT(DISTINCT o.order_id) >= 33
-	AND ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) >= 5
-ORDER BY ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) DESC;
--- Used the limit for amount of total orders as 33 since Spring 2018 had almost 3x the amount of total orders as Spring 2017
--- Only 3 routes had late delivery rate over 10%: SP -> SC: 28/195 (14.36%), MG -> BA: 5/36 (13.89%), SP -> CE: 7/61 (11.48%)
--- Only common routes are SP -> SC and SP -> CE 
--- Only 10 routes with over 5% late delivery rate (and under 10%): SP -> MT, SP -> MA, SC -> SP, PR -> SP, PR -> PR, SP -> BA, SP -> RJ, SC -> MG, MG -> RJ, PR -> RJ
-
-
-# Identifying the product categories that contribute to most late deliveries in each season
-SELECT p.product_category_name,
-	COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END) AS "Number of product per category delivered late during Spring 2018",
-	COUNT(CASE WHEN o.order_id IS NOT NULL THEN oi.product_id END) AS "Total number of products per cateogry delivered during Spring 2018",
-    ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) AS "Percent of products per category delivered late during Spring 2018"
-FROM products p
-JOIN order_items oi 
-    ON p.product_id = oi.product_id
-JOIN orders o 
-    ON oi.order_id = o.order_id
-LEFT JOIN late_orders lo
-	ON o.order_id = lo.order_id
-WHERE YEAR(o.order_delivered_customer_date) = 2018 
-	AND MONTH(o.order_delivered_customer_date) BETWEEN 3 AND 5
-GROUP BY p.product_category_name
+WHERE MONTH(o.order_delivered_customer_date) BETWEEN 6 AND 8
+GROUP BY YEAR(o.order_delivered_customer_date), s.seller_state, c.customer_state
 HAVING COUNT(DISTINCT o.order_id) >= 100
 	AND ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) >= 10
-ORDER BY ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) DESC;
--- 26 product categories had over 100 total delivers and over 10% late delivery rate in Spring 2018
--- From highest late delivery rate to lowest (17.67% -> 10.48%):
--- bed_bath_table, electronics, telephony, consoles_games, health_beauty, stationery, garden_tools, sports_leisure, computers_accessories, baby, watches_gifts, perfumery, industry_commerce_and_business
--- fashion_bags_accessories, furniture_decor, auto, toys, construction_tools_construction, home_construction, pet_shop, cool_stuff, musical_instruments, office_furniture, luggage_accessories
--- housewares, small_appliances
+ORDER BY YEAR(o.order_delivered_customer_date), s.seller_state, ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) DESC;
+-- No problematic routes in Summer 2017
+-- There were 5 routes in Summer 2018 that contributed to the high volume of late deliveries. 4 from SP and 1 from RJ (seller states)
 
-# To confirm if these specific product categories in particulat contribute to higher late deliveries in spring 2019, we can compare them to the highest late delivery rate product categories of spring 2017
-SELECT p.product_category_name,
-	COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END) AS "Number of product per category delivered late during Spring 2018",
-	COUNT(CASE WHEN o.order_id IS NOT NULL THEN oi.product_id END) AS "Total number of products per cateogry delivered during Spring 2018",
-    ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) AS "Percent of products per category delivered late during Spring 2018"
+# Identifying if there is a difference in the product_categories that contribute to higher late delivery rates in Summer 2018 compared to Summer 2017:
+SELECT YEAR(o.order_delivered_customer_date) AS "Year",
+    p.product_category_name AS "Product category",
+    COUNT(DISTINCT lo.order_id) AS "Late deliveries made from seller state to customer state",
+    COUNT(DISTINCT o.order_id) AS "Total orders made through route",
+    ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) AS "Percent of deliveries in route that were late"
 FROM products p
-JOIN order_items oi 
-    ON p.product_id = oi.product_id
-JOIN orders o 
-    ON oi.order_id = o.order_id
-LEFT JOIN late_orders lo
-	ON o.order_id = lo.order_id
-WHERE YEAR(o.order_delivered_customer_date) = 2017 
-	AND MONTH(o.order_delivered_customer_date) BETWEEN 3 AND 5
-GROUP BY p.product_category_name
-HAVING COUNT(DISTINCT o.order_id) >= 33
-	AND ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) >= 5
-ORDER BY ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) DESC;
--- There was only 1 product category with over 33 total deliveries and over 10% late delivery rate: food
--- There are 14 products that have over 33 total deliveries and over 5% late delivery rate
--- From highest to lowest late delivery rate (7.66% -> 5.36%)
--- furniture_decor, small_appliances, musical_instruments, consoles_games, auto, electronics, furniture_living_room
--- perfumery, baby, office_furniture, home_confort, audio, cool_stuff, telephony
--- 10 of the 14 15 categories contribute to high late delivery rates in Spring 2018 and and the higher late delivery rates in Spring 2017
-
-
-# Identifying if there are specific product categories that contribute to the high late deliveries in high late delivery routes during spring 2018
-SELECT s.seller_state AS "Seller state",
-    c.customer_state AS "Customer State",
-    p.product_category_name AS "Product Category",
-	COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END) AS "Number of products in category delivered late",
-    COUNT(CASE WHEN o.order_id IS NOT NULL THEN oi.product_id END) AS "Total number of products in category delivered",
-    ROUND((COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END) / COUNT(CASE WHEN o.order_id IS NOT NULL THEN oi.product_id END)) * 100, 2) AS "Percent of products delivered in route that were late"
-FROM products p
-JOIN order_items oi 
-    ON p.product_id = oi.product_id
-JOIN sellers s
-	ON oi.seller_id = s.seller_id
-JOIN orders o 
-    ON oi.order_id = o.order_id
-JOIN customers c
-	ON o.customer_unique_id = c.customer_unique_id
-LEFT JOIN late_orders lo
-	ON o.order_id = lo.order_id
-WHERE YEAR(o.order_delivered_customer_date) = 2018 
-	AND MONTH(o.order_delivered_customer_date) BETWEEN 3 AND 5 
-	AND (s.seller_state, c.customer_state) IN (
-											('RJ', 'MG'), ('RJ', 'SP'), ('SP', 'GO'), ('MG', 'RJ'), ('SP', 'DF'),
-											('SP', 'MG'), ('SP', 'RS'), ('SP', 'MT'), ('PR', 'MG'), ('SP', 'PR')
-											)
-GROUP BY s.seller_state, c.customer_state, p.product_category_name
-HAVING COUNT(CASE WHEN lo.order_id IS NOT NULL THEN oi.product_id END) >= 10
-ORDER BY s.seller_state, p.product_category_name, COUNT(CASE WHEN o.order_id IS NOT NULL THEN oi.product_id END) DESC;
--- THere are 13 product categories delivering through the routes with the highest volumes of late deliveries per product (over 10) in spring 2018:
--- auto, bed_bath_table, computers_accessories, cool_stuff, furniture_decor, garden_tools, health_beauty, housewares, perfumery, sports_leisure, telephony, toys, watches_gifts
--- product categories with high volumes of late deliveres in multiple routes: bed_bath_table, computers_accessories, health_beauty, housewares, sports_leisure
--- Seller states with high volumes of late deliveries in specific product categories: SP, PR, RJ
--- PR -> MG: computers_accessories
--- RJ: health_beauty, perfumery, health_beauty
--- SP: all BUT perfumery (12 of the 13 product categories)
-
-
-# Analyzing Winter 2017 and Winter 2018 that comprise of controlled levels of late deliveries (~8% acrorss both years) to compare to Spring 2018 findings
-# Identifying if there are specific routes (seller to customer states) that contribute to late delivery rates in Winter 2017 and winter 2018:
-SELECT 
-    s.seller_state AS "Seller state",
-    c.customer_state AS "Customer State",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND lo.order_id IS NOT NULL THEN lo.order_id END) AS "Late deliveries made through route in Winter 2017",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND o.order_id IS NOT NULL THEN o.order_id END) AS "Total orders made through route in Winter 2017",
-    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND lo.order_id IS NOT NULL THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) AS "Percent of deliveries in route that were late in Winter 2017",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END) AS "Late deliveries made through route in Winter 2018",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END) AS "Total orders made through route in Winter 2018",
-    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL  THEN o.order_id END)) * 100, 2) AS "Percent of deliveries in route that were late in Winter 2018"
-FROM sellers s
 JOIN order_items oi
-    ON s.seller_id = oi.seller_id
+    ON p.product_id = oi.product_id
 JOIN orders o
-    ON oi.order_id = o.order_id
-JOIN customers c
-    ON o.customer_unique_id = c.customer_unique_id
+    ON o.order_id = oi.order_id
 LEFT JOIN late_orders lo
     ON oi.order_id = lo.order_id
-WHERE MONTH(o.order_delivered_customer_date) IN (1, 2, 12)
-GROUP BY s.seller_state, c.customer_state
-HAVING COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END) >= 100
-	AND ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) >= 10
-ORDER BY ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) DESC;
--- In Winter 2017, there were 6 routes with over 100 total deliveries and over 10% late delivery rate. From highest to lowest late delivery rate (23.97% -> 11.36%):
--- SP -> ES, SP -> RJ, SP -> GO, SP -> DF, SP -> SC, SP -> BA
--- In Winter 2018, there were 9 routes with voer 100 total deliveries and over 10% late delivery rate. From highest to lowest late delivery rate (25.79%, 11.30%):
--- SP -> RJ, MG -> RJ, PR -> RJ, SP -> BA, SP -> RS, SP -> SC, SP -> PE, RJ -> SP, SP -> CE
+WHERE MONTH(o.order_delivered_customer_date) BETWEEN 6 AND 8 
+GROUP BY YEAR(o.order_delivered_customer_date), p.product_category_name
+HAVING COUNT(DISTINCT o.order_id) >= 100
+	AND ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) >= 10
+ORDER BY YEAR(o.order_delivered_customer_date), ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) DESC;
+-- There are no product categories that contribute meaningfully to the late delivery rate in Summer 2017
+-- There were only 2 products that contribute meaningfully to the late delivery rate in Summer 2018. food: 25/186 (13.44%) and office_furniture: 21/195 (10.77%)
 
-# Identifying the product categories that contribute most to the higher late delivery rates in Winter 2017 and Winter 2018
-SELECT p.product_category_name AS "Product Category",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND lo.order_id IS NOT NULL THEN lo.order_id END) AS "Late deliveries made per product category in Winter 2017",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND o.order_id IS NOT NULL THEN o.order_id END) AS "Total orders made per product category in Winter 2017",
-    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND lo.order_id IS NOT NULL THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2017 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) AS "Percent of deliveries per product category that were late in Winter 2017",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END) AS "Late deliveries made per product category in Winter 2018",
-    COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END) AS "Total orders made per product category in Winter 2018",
-    ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) AS "Percent of deliveries per product category that were late in Winter 2018"
-FROM products p
-JOIN order_items oi 
-    ON p.product_id = oi.product_id
-JOIN orders o 
-    ON oi.order_id = o.order_id
+# Identifying if there is a difference in the logistics times that contribute to higher late delivery rates in Summer 2018 compared to Summer 2017:
+SELECT YEAR(o.order_delivered_customer_date) AS "Year",
+	AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.apporval_time_mins END) AS "Average approval time of late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.apporval_time_mins END) AS "Average approval time of non late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.carrier_pickup_time_mins END) AS "Average Carrier pickup time of late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.carrier_pickup_time_mins END) AS "Average Carrier pickup time of non late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins > 0 THEN od.shipping_time_mins END) AS "Average shipping time of late orders per year",
+    AVG(CASE WHEN od.order_delay_time_mins = 0 THEN od.shipping_time_mins END) AS "Average shipping time of non late orders per year"
+FROM orders o
+JOIN orders_duration od
+	ON o.order_id = od.order_id
 LEFT JOIN late_orders lo
-	ON o.order_id = lo.order_id
-WHERE MONTH(o.order_delivered_customer_date) IN (1, 2, 12)
-GROUP BY p.product_category_name
-HAVING COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END) >= 80
-	AND ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) >= 10
-ORDER BY ROUND((COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND lo.order_id IS NOT NULL THEN lo.order_id END)
-			/ COUNT(DISTINCT CASE WHEN YEAR(o.order_delivered_customer_date) = 2018 AND o.order_id IS NOT NULL THEN o.order_id END)) * 100, 2) DESC;
--- 748/8660 (2017) and 1018/12130 (2018)
--- In Winter 2017; there were 5 product categories with over 50 total deliveries and over 10% late delivery rate (from highest to lowest: 15.38% -> 10.39%)
--- office_furniture, bed_bath_table, baby, electronics, telephony
--- In Winter 2018; there were 7 product categories with over 80 total deliveries and over 10% late delivery rate (from highest to lowest: 16.67% -> 10.47%)
--- toys, baby, consoles_games, garden_tools, furniture_decor, bed_bath_table, musical_instruments
+    ON o.order_id = lo.order_id
+WHERE MONTH(o.order_delivered_customer_date) BETWEEN 6 AND 8
+GROUP BY YEAR(o.order_delivered_customer_date)
+ORDER BY YEAR(o.order_delivered_customer_date), ROUND((COUNT(DISTINCT lo.order_id) / COUNT(DISTINCT o.order_id)) * 100, 2) DESC;
+-- There is no mechanism in the logistics timeline that could explain an increase in late deliveries during summer 2018.
